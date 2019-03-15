@@ -42,6 +42,7 @@ templates:
         when:
             - create
             - copy
+            - rename
         template: hostname.tpl
     /etc/rc.local:
         when:
@@ -69,37 +70,25 @@ cat > templates/rc.local.orig.tpl <<EOF
 # This is run by runit in stage 2 before the services are executed
 # (see /etc/runit/2).
 EOF
-chmod 755 templates/rc.local.orig.tpl
 
 cat > templates/rc.local.tpl <<'EOF'
 #!/bin/bash
 
 PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export PATH
-
-printf "Removing services:\n"
 for service in agetty-tty{1,2,3,4,5,6}; do
-	printf "[-] %s: " "$service"
 	rm "/etc/runit/runsvdir/default/$service"
-	printf "removed\n"
 done
-
-printf "Adding services:\n"
 for service in dhcpcd-eth0 sshd; do
-	printf "[+] %s: " "$service"
 	ln -s "/etc/sv/$service" /etc/runit/runsvdir/default
-	printf "added\n"
 done
-
+chmod +x /etc/rc.local.orig
 mv /etc/rc.local.orig /etc/rc.local
-
 EOF
 
 cat > templates/prompts.sh.tpl <<'EOF'
 #!/bin/bash
-
 PS1="\[\e[0;36;1m\]\u\[\e[0m\]@\[\e[36m\]\h\[\e[0m\]:\[\e[35;1m\]\w\[\e[37m\]\\\$\[\e[0m\] "
-
 export PS1
 EOF
 

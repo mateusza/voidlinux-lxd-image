@@ -44,14 +44,14 @@ templates:
             - copy
             - rename
         template: hostname.tpl
-    /etc/rc.local:
+    /etc/rc.firstboot:
         when:
             - create
-        template: rc.local.tpl
-    /etc/rc.local.orig:
+        template: rc.firstboot.tpl
+    /etc/runit/core-services/999-firstboot.sh:
         when:
             - create
-        template: rc.local.orig.tpl
+        template: 999-firstboot.sh.tpl
     /etc/bash/bashrc.d/prompts.sh:
         when:
             - create
@@ -60,36 +60,32 @@ EOF
 
 mkdir templates
 
-cat > templates/hostname.tpl <<EOF
+cat > templates/hostname.tpl <<'EOF'
 {{ container.name }}
 EOF
 
-cat > templates/rc.local.orig.tpl <<EOF
-# Default rc.local for void; add your custom commands here.
-#
-# This is run by runit in stage 2 before the services are executed
-# (see /etc/runit/2).
+cat > templates/999-firstboot.sh.tpl <<'EOF'
+[[ -e /var/lib/firstboot-done ]] || bash /etc/rc.firstboot
 EOF
 
-cat > templates/rc.local.tpl <<'EOF'
+cat > templates/rc.firstboot.tpl <<'EOF'
 #!/bin/bash
 
-PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-export PATH
 for service in agetty-tty{1,2,3,4,5,6}; do
-	rm "/etc/runit/runsvdir/default/$service"
+	printf -v srv "/etc/runit/runsvdir/default/%s" "$service"
+	[[ -L "$srv" ]] && rm "$srv"
 done
 for service in dhcpcd-eth0 sshd; do
-	ln -s "/etc/sv/$service" /etc/runit/runsvdir/default
+	printf -v srv "/etc/sv/%s" "$service"
+	[[ -L "$srv" ]] || ln -s "$srv" /etc/runit/runsvdir/default
 done
-chmod +x /etc/rc.local.orig
-mv /etc/rc.local.orig /etc/rc.local
+
+touch /var/lib/firstboot-done
 EOF
 
 cat > templates/prompts.sh.tpl <<'EOF'
 #!/bin/bash
 PS1="\[\e[0;36;1m\]\u\[\e[0m\]@\[\e[36m\]\h\[\e[0m\]:\[\e[35;1m\]\w\[\e[37m\]\\\$\[\e[0m\] "
-export PS1
 EOF
 
 tar cvf metadata.tar metadata.yaml templates
